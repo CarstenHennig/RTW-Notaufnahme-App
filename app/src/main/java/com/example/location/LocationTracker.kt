@@ -25,23 +25,44 @@ data class CityPreset(
   val state: String,
   val latitude: Double,
   val longitude: Double,
-  val defaultStreet: String
+  val defaultStreet: String,
+  val country: String = "DE"
 )
 
 class LocationTracker(private val context: Context) {
   private val TAG = "LocationTracker"
 
   val presets = listOf(
-    CityPreset("Berlin (Mitte)", "Berlin", 52.5200, 13.4050, "Alexanderplatz"),
-    CityPreset("München (Zentrum)", "Bayern", 48.1371, 11.5754, "Marienplatz"),
-    CityPreset("Hamburg (Hafen)", "Hamburg", 53.5438, 9.9803, "Landungsbrücken"),
-    CityPreset("Frankfurt am Main", "Hessen", 50.1071, 8.6638, "Hauptbahnhof"),
-    CityPreset("Köln (Zentrum)", "NRW", 50.9364, 6.9528, "Neumarkt"),
-    CityPreset("Stuttgart (Mitte)", "Baden-Württemberg", 48.7758, 9.1829, "Schlossplatz"),
-    CityPreset("Nürnberg", "Bayern", 49.4478, 11.0805, "Hauptbahnhof"),
-    CityPreset("Leipzig", "Sachsen", 51.3397, 12.3731, "Marktplatz"),
-    CityPreset("Dortmund", "NRW", 51.5136, 7.4653, "Westfalenhalle")
+    // DEUTSCHLAND 🇩🇪
+    CityPreset("Berlin (Mitte)", "Berlin", 52.5200, 13.4050, "Alexanderplatz", "DE"),
+    CityPreset("München (Zentrum)", "Bayern", 48.1371, 11.5754, "Marienplatz", "DE"),
+    CityPreset("Hamburg (Hafen)", "Hamburg", 53.5438, 9.9803, "Landungsbrücken", "DE"),
+    CityPreset("Frankfurt am Main", "Hessen", 50.1071, 8.6638, "Hauptbahnhof", "DE"),
+    CityPreset("Köln (Zentrum)", "NRW", 50.9364, 6.9528, "Neumarkt", "DE"),
+    CityPreset("Stuttgart (Mitte)", "Baden-Württemberg", 48.7758, 9.1829, "Schlossplatz", "DE"),
+    CityPreset("Düsseldorf", "NRW", 51.2277, 6.7735, "Königsallee", "DE"),
+    CityPreset("Hannover", "Niedersachsen", 52.3759, 9.7320, "Kröpcke", "DE"),
+    CityPreset("Nürnberg", "Bayern", 49.4478, 11.0805, "Hauptbahnhof", "DE"),
+    CityPreset("Leipzig", "Sachsen", 51.3397, 12.3731, "Marktplatz", "DE"),
+    CityPreset("Freiburg im Breisgau", "Baden-Württemberg", 47.9990, 7.8421, "Münsterplatz", "DE"),
+
+    // ÖSTERREICH 🇦🇹
+    CityPreset("Wien (Zentrum)", "Wien", 48.2082, 16.3738, "Stephansplatz", "AT"),
+    CityPreset("Graz", "Steiermark", 47.0707, 15.4395, "Hauptplatz", "AT"),
+    CityPreset("Linz", "Oberösterreich", 48.3064, 14.2858, "Hauptplatz", "AT"),
+    CityPreset("Salzburg", "Salzburg", 47.7981, 13.0465, "Residenzplatz", "AT"),
+    CityPreset("Innsbruck", "Tirol", 47.2682, 11.3933, "Maria-Theresien-Straße", "AT"),
+    CityPreset("Bregenz / Feldkirch", "Vorarlberg", 47.5031, 9.7471, "Kornmarktplatz", "AT"),
+
+    // SCHWEIZ 🇨🇭
+    CityPreset("Zürich (Zentrum)", "Zürich", 47.3698, 8.5391, "Paradeplatz", "CH"),
+    CityPreset("Bern (Zentrum)", "Bern", 46.9472, 7.4441, "Bundesplatz", "CH"),
+    CityPreset("Basel (Dreiländereck)", "Basel-Stadt", 47.5584, 7.5878, "Marktplatz", "CH"),
+    CityPreset("Luzern", "Luzern", 47.0516, 8.3075, "Kapellbrücke", "CH"),
+    CityPreset("St. Gallen", "St. Gallen", 47.4239, 9.3767, "Marktplatz", "CH"),
+    CityPreset("Genf / Genève", "Genève", 46.2009, 6.1423, "Place Neuve", "CH")
   )
+
 
   private val fusedClient: FusedLocationProviderClient =
     LocationServices.getFusedLocationProviderClient(context)

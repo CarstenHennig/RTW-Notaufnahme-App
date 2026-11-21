@@ -1,0 +1,1507 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>RTW Notaufnahme DACH - Klinik-Navigator</title>
+  
+  <!-- iOS PWA Meta Tags -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="RTW Notaufnahme">
+  <link rel="apple-touch-icon" href="./apple-touch-icon.png">
+  <link rel="manifest" href="./manifest.json">
+  <meta name="theme-color" content="#D32F2F">
+  
+  <!-- Leaflet CSS for Map View -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+
+  <style>
+    :root {
+      --primary: #D32F2F;
+      --primary-dark: #B71C1C;
+      --primary-light: #FFEBEE;
+      --secondary: #0288D1;
+      --secondary-dark: #01579B;
+      --accent: #FFB300;
+      --green: #2E7D32;
+      --bg: #0F141A;
+      --surface: #182028;
+      --surface-variant: #222D38;
+      --border: #324150;
+      --text: #F1F5F9;
+      --text-muted: #94A3B8;
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+      padding-top: var(--safe-top);
+      padding-bottom: var(--safe-bottom);
+    }
+
+    /* Top Navigation Bar */
+    header {
+      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .header-title-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .header-icon {
+      width: 38px;
+      height: 38px;
+      background: rgba(255,255,255,0.2);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+    }
+
+    .header-title h1 {
+      font-size: 17px;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      line-height: 1.2;
+    }
+
+    .header-title p {
+      font-size: 11px;
+      opacity: 0.9;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn-icon {
+      background: rgba(255,255,255,0.18);
+      border: none;
+      color: white;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    /* iOS Install Hint Banner */
+    .ios-install-banner {
+      background: #1E293B;
+      border-bottom: 1px solid var(--border);
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+      display: none;
+    }
+
+    .ios-install-banner.active {
+      display: flex;
+    }
+
+    .ios-install-banner span strong {
+      color: #38BDF8;
+    }
+
+    .btn-dismiss {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 16px;
+      cursor: pointer;
+      padding: 4px;
+    }
+
+    /* Location & Telemetry Bar */
+    .location-bar {
+      background: var(--surface);
+      margin: 10px 14px;
+      padding: 12px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .location-bar-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .gps-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .gps-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #00E676;
+      box-shadow: 0 0 8px #00E676;
+      animation: pulse 1.5s infinite;
+    }
+
+    .gps-dot.simulated {
+      background: #FFB300;
+      box-shadow: 0 0 8px #FFB300;
+      animation: none;
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(0.9); opacity: 0.7; }
+      50% { transform: scale(1.2); opacity: 1; }
+      100% { transform: scale(0.9); opacity: 0.7; }
+    }
+
+    .location-actions {
+      display: flex;
+      gap: 6px;
+    }
+
+    .btn-pill {
+      background: var(--surface-variant);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 6px 10px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .location-address {
+      font-size: 14px;
+      font-weight: 700;
+      color: #FFFFFF;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .telemetry-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .telemetry-speed {
+      font-weight: 700;
+      color: #38BDF8;
+    }
+
+    /* Search & Specialty Filter */
+    .search-wrap {
+      padding: 0 14px;
+      margin-bottom: 8px;
+    }
+
+    .search-input {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px 14px;
+      color: white;
+      font-size: 13px;
+      outline: none;
+    }
+
+    .search-input:focus {
+      border-color: var(--primary);
+    }
+
+    .country-bar {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      padding: 0 14px 8px;
+      scrollbar-width: none;
+    }
+
+    .country-bar::-webkit-scrollbar {
+      display: none;
+    }
+
+    .country-btn {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 5px 11px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.15s;
+    }
+
+    .country-btn.active {
+      background: rgba(2, 136, 209, 0.22);
+      border-color: #0288D1;
+      color: #38BDF8;
+    }
+
+    .country-flag-badge {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 800;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: var(--surface-variant);
+      color: #F8FAFC;
+      margin-right: 4px;
+    }
+
+    .filters-scroll {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding: 4px 14px 10px;
+      scrollbar-width: none;
+    }
+
+    .filters-scroll::-webkit-scrollbar {
+      display: none;
+    }
+
+    .filter-chip {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+
+    .filter-chip.active {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: white;
+    }
+
+    .radius-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 14px 6px;
+    }
+
+    .radius-btn {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 4px 10px;
+      border-radius: 8px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .radius-btn.active {
+      background: var(--surface-variant);
+      border-color: #38BDF8;
+      color: #38BDF8;
+    }
+
+    /* List Container */
+    .list-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 4px 16px;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-muted);
+    }
+
+    .hospital-list {
+      flex: 1;
+      padding: 8px 14px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    /* Hospital Card */
+    .hospital-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+    }
+
+    .card-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .eta-badge {
+      background: rgba(211, 47, 47, 0.18);
+      border: 1px solid rgba(211, 47, 47, 0.4);
+      color: #FF5252;
+      padding: 6px 10px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .eta-minutes {
+      font-size: 16px;
+      font-weight: 900;
+    }
+
+    .eta-km {
+      font-size: 12px;
+      opacity: 0.9;
+    }
+
+    .status-pill {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 4px 8px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      cursor: pointer;
+    }
+
+    .status-pill.available {
+      background: rgba(46, 125, 50, 0.2);
+      color: #4CAF50;
+      border: 1px solid rgba(76, 175, 80, 0.3);
+    }
+
+    .status-pill.restricted {
+      background: rgba(255, 179, 0, 0.2);
+      color: #FFB300;
+      border: 1px solid rgba(255, 179, 0, 0.3);
+    }
+
+    .status-pill.closed {
+      background: rgba(211, 47, 47, 0.2);
+      color: #EF5350;
+      border: 1px solid rgba(239, 83, 80, 0.3);
+    }
+
+    .hosp-name {
+      font-size: 16px;
+      font-weight: 800;
+      color: white;
+      line-height: 1.3;
+    }
+
+    .hosp-dept {
+      font-size: 12px;
+      color: #38BDF8;
+      font-weight: 600;
+    }
+
+    .hosp-address {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .specialties-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .spec-tag {
+      background: var(--surface-variant);
+      color: #CBD5E1;
+      padding: 3px 7px;
+      border-radius: 5px;
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    .spec-tag.heli {
+      background: rgba(2, 136, 209, 0.2);
+      color: #38BDF8;
+      border: 1px solid rgba(2, 136, 209, 0.3);
+    }
+
+    /* Card Actions (Large 48px+ touch targets for paramedics) */
+    .card-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    .btn-nav-primary {
+      flex: 1;
+      height: 48px;
+      background: var(--primary);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      cursor: pointer;
+      box-shadow: 0 3px 8px rgba(211, 47, 47, 0.4);
+    }
+
+    .btn-nav-primary:active {
+      transform: scale(0.98);
+    }
+
+    .btn-action-icon {
+      width: 48px;
+      height: 48px;
+      background: var(--surface-variant);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      cursor: pointer;
+    }
+
+    .btn-action-icon:active {
+      background: #334155;
+    }
+
+    /* Modal Sheet for Route & Voranmeldung */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(4px);
+      z-index: 1000;
+      display: none;
+      align-items: flex-end;
+    }
+
+    .modal-overlay.active {
+      display: flex;
+    }
+
+    .modal-sheet {
+      background: var(--surface);
+      border-top-left-radius: 20px;
+      border-top-right-radius: 20px;
+      border-top: 1px solid var(--border);
+      width: 100%;
+      max-height: 85vh;
+      overflow-y: auto;
+      padding: 18px 18px calc(18px + var(--safe-bottom));
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      animation: slideUp 0.25s ease-out;
+    }
+
+    @keyframes slideUp {
+      from { transform: translateY(100%); }
+      to { transform: translateY(0); }
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .modal-title {
+      font-size: 17px;
+      font-weight: 800;
+    }
+
+    #route-map {
+      width: 100%;
+      height: 220px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+    }
+
+    .steps-list {
+      max-height: 180px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .step-item {
+      display: flex;
+      gap: 10px;
+      font-size: 12px;
+      padding: 6px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .step-num {
+      width: 20px;
+      height: 20px;
+      background: var(--surface-variant);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 10px;
+      color: #38BDF8;
+      flex-shrink: 0;
+    }
+
+    /* Voranmeldung Form */
+    .triage-group {
+      display: flex;
+      gap: 8px;
+    }
+
+    .triage-btn {
+      flex: 1;
+      height: 42px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      font-size: 12px;
+      font-weight: 800;
+      cursor: pointer;
+      color: white;
+      background: var(--surface-variant);
+    }
+
+    .triage-btn.red.active { background: #D32F2F; border-color: #EF5350; }
+    .triage-btn.yellow.active { background: #FFA000; border-color: #FFB300; }
+    .triage-btn.green.active { background: #2E7D32; border-color: #4CAF50; }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .form-group label {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-muted);
+    }
+
+    .form-input {
+      background: var(--surface-variant);
+      border: 1px solid var(--border);
+      color: white;
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 13px;
+    }
+
+    .form-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .form-row .form-group {
+      flex: 1;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Emergency Bar -->
+  <header>
+    <div class="header-title-wrap">
+      <div class="header-icon">🚑</div>
+      <div class="header-title">
+        <h1>RTW NOTAUFNAHME DACH</h1>
+        <p>DE 🇩🇪 • AT 🇦🇹 • CH 🇨🇭 | Notaufnahme- & Routen-Navigator</p>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button class="btn-icon" id="btn-toggle-sort" title="Sortierung ändern">⏱️</button>
+      <button class="btn-icon" id="btn-refresh" title="Aktualisieren">🔄</button>
+    </div>
+  </header>
+
+  <!-- iOS Safari Install Banner -->
+  <div class="ios-install-banner" id="ios-install-banner">
+    <span>📲 <strong>iPhone-Tipp:</strong> Im Safari-Menü auf <strong>Teilen [↑]</strong> und <strong>„Zum Home-Bildschirm“</strong> tippen!</span>
+    <button class="btn-dismiss" id="btn-dismiss-banner">✕</button>
+  </div>
+
+  <!-- Location & GPS Telemetry -->
+  <section class="location-bar">
+    <div class="location-bar-top">
+      <div class="gps-status">
+        <div class="gps-dot" id="gps-indicator"></div>
+        <span id="gps-label">LIVE GPS AKTIV</span>
+      </div>
+      <div class="location-actions">
+        <button class="btn-pill" id="btn-city-preset">📍 Gebiet: <span id="current-city-label">Berlin</span></button>
+        <button class="btn-pill" id="btn-gps-toggle">🛰️ GPS</button>
+      </div>
+    </div>
+    <div class="location-address" id="location-address-text">Ermittle aktuellen Standort...</div>
+    <div class="telemetry-row">
+      <span id="telemetry-coords">52.5200° N, 13.4050° E (±5m)</span>
+      <span class="telemetry-speed" id="telemetry-speed">0 km/h</span>
+    </div>
+  </section>
+
+  <!-- Search Input -->
+  <div class="search-wrap">
+    <input type="text" class="search-input" id="search-input" placeholder="Klinik, Notaufnahme oder Stadt suchen...">
+  </div>
+
+  <!-- DACH Country Selector -->
+  <div class="country-bar">
+    <button class="country-btn active" data-country="ALL">🌍 DACH (Alle)</button>
+    <button class="country-btn" data-country="DE">🇩🇪 Deutschland</button>
+    <button class="country-btn" data-country="AT">🇦🇹 Österreich</button>
+    <button class="country-btn" data-country="CH">🇨🇭 Schweiz</button>
+  </div>
+
+  <!-- Emergency Specialty Filters -->
+  <nav class="filters-scroll">
+    <button class="filter-chip active" data-spec="ALL">🏥 Alle Notaufnahmen</button>
+    <button class="filter-chip" data-spec="CPU">❤️ CPU (Herzkatheter 24h)</button>
+    <button class="filter-chip" data-spec="STROKE">🧠 Stroke Unit (Schlaganfall)</button>
+    <button class="filter-chip" data-spec="TRAUMA">⚡ Traumazentrum (Schockraum)</button>
+    <button class="filter-chip" data-spec="PEDIATRIC">👶 Kinder-Notaufnahme</button>
+    <button class="filter-chip" data-spec="BURN">🔥 Verbrennungszentrum</button>
+  </nav>
+
+  <!-- Umkreis / Radius Selector -->
+  <div class="radius-bar">
+    <span style="font-size: 11px; color: var(--text-muted); font-weight: 700;">SUCHRADIUS:</span>
+    <div style="display: flex; gap: 6px;">
+      <button class="radius-btn" data-radius="15">15 km</button>
+      <button class="radius-btn active" data-radius="35">35 km</button>
+      <button class="radius-btn" data-radius="70">70 km</button>
+      <button class="radius-btn" data-radius="999">Alle Kliniken</button>
+    </div>
+  </div>
+
+  <div class="list-header">
+    <span id="hospitals-count-text">Notaufnahmen im Umkreis</span>
+    <span id="sort-label">Sortiert: Fahrzeit</span>
+  </div>
+
+  <!-- Hospital Cards List -->
+  <main class="hospital-list" id="hospital-list-container"></main>
+
+  <!-- Route Detail Modal Sheet -->
+  <div class="modal-overlay" id="route-modal">
+    <div class="modal-sheet">
+      <div class="modal-header">
+        <div>
+          <span style="font-size: 11px; color: var(--primary); font-weight: 800;">PKW / RTW ROUTENÜBERSICHT</span>
+          <div class="modal-title" id="modal-hosp-name">Klinikname</div>
+          <div style="font-size: 12px; color: var(--text-muted);" id="modal-hosp-address">Adresse</div>
+        </div>
+        <button class="btn-icon" id="btn-close-route">✕</button>
+      </div>
+
+      <!-- Live Interactive Map -->
+      <div id="route-map"></div>
+
+      <!-- Route Stats -->
+      <div style="display: flex; gap: 10px;">
+        <div style="flex:1; background: var(--surface-variant); padding: 10px; border-radius: 10px; text-align: center;">
+          <div style="font-size: 11px; color: var(--text-muted);">PKW-Fahrzeit</div>
+          <div style="font-size: 18px; font-weight: 900; color: #FF5252;" id="modal-route-duration">-- Min</div>
+        </div>
+        <div style="flex:1; background: var(--surface-variant); padding: 10px; border-radius: 10px; text-align: center;">
+          <div style="font-size: 11px; color: var(--text-muted);">Fahrstrecke</div>
+          <div style="font-size: 18px; font-weight: 900; color: #38BDF8;" id="modal-route-distance">-- km</div>
+        </div>
+      </div>
+
+      <div style="font-size: 12px; font-weight: 700; color: var(--text);">Abbiegehinweise:</div>
+      <div class="steps-list" id="modal-steps-container"></div>
+
+      <!-- Direct Nav Launcher -->
+      <button class="btn-nav-primary" id="btn-modal-launch-nav" style="width: 100%;">
+        🧭 In Navigations-App starten (Turn-by-Turn)
+      </button>
+    </div>
+  </div>
+
+  <!-- Voranmeldung Modal Sheet -->
+  <div class="modal-overlay" id="prenotify-modal">
+    <div class="modal-sheet">
+      <div class="modal-header">
+        <div>
+          <span style="font-size: 11px; color: var(--primary); font-weight: 800;">RTW VORANMELDUNG (SBAR)</span>
+          <div class="modal-title" id="prenotify-hosp-name">Zielklinik</div>
+        </div>
+        <button class="btn-icon" id="btn-close-prenotify">✕</button>
+      </div>
+
+      <div class="triage-group">
+        <button class="triage-btn red active" id="btn-triage-red">ROT (Schockraum)</button>
+        <button class="triage-btn yellow" id="btn-triage-yellow">GELB (Dringend)</button>
+        <button class="triage-btn green" id="btn-triage-green">GRÜN (Stabil)</button>
+      </div>
+
+      <div class="form-group">
+        <label>Verdachtsdiagnose / Leitsymptom</label>
+        <input type="text" class="form-input" id="vn-diagnosis" value="Akutes Koronarsyndrom (STEMI)">
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Alter</label>
+          <input type="text" class="form-input" id="vn-age" value="58">
+        </div>
+        <div class="form-group">
+          <label>Geschlecht</label>
+          <input type="text" class="form-input" id="vn-gender" value="männlich">
+        </div>
+        <div class="form-group">
+          <label>ETA (Minuten)</label>
+          <input type="text" class="form-input" id="vn-eta" value="10">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>HF (/min)</label>
+          <input type="text" class="form-input" id="vn-hf" value="105">
+        </div>
+        <div class="form-group">
+          <label>RR (mmHg)</label>
+          <input type="text" class="form-input" id="vn-rr" value="95/60">
+        </div>
+        <div class="form-group">
+          <label>SpO2 (%)</label>
+          <input type="text" class="form-input" id="vn-spo2" value="95%">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Besonderheiten / Maßnahmen</label>
+        <input type="text" class="form-input" id="vn-notes" value="Voranmeldung via Leitstelle, EKG per Telemetrie übermittelt">
+      </div>
+
+      <div style="display: flex; gap: 8px;">
+        <button class="btn-nav-primary" id="btn-share-prenotify" style="flex: 2;">
+          📤 Voranmeldung teilen (iMessage/SMS/Messenger)
+        </button>
+        <button class="btn-action-icon" id="btn-call-from-prenotify" style="flex: 1; width: auto; font-size: 14px; gap: 6px;">
+          📞 Anrufen
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- City Presets Dialog -->
+  <div class="modal-overlay" id="presets-modal">
+    <div class="modal-sheet">
+      <div class="modal-header">
+        <div class="modal-title">Einsatzgebiet wählen</div>
+        <button class="btn-icon" id="btn-close-presets">✕</button>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px;" id="presets-list-container"></div>
+    </div>
+  </div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+  <script>
+    // Register Service Worker for PWA
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW error:', err));
+    }
+
+    // Check if on iOS Safari & show install banner
+    const isIos = /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase());
+    const isInStandaloneMode = ('standalone' in window.navigator) && (window.navigator.standalone);
+    if (isIos && !isInStandaloneMode) {
+      document.getElementById('ios-install-banner').classList.add('active');
+    }
+    document.getElementById('btn-dismiss-banner').addEventListener('click', () => {
+      document.getElementById('ios-install-banner').classList.remove('active');
+    });
+
+    // City Presets (DACH Region)
+    const CITY_PRESETS = [
+      // DEUTSCHLAND 🇩🇪
+      { name: "Berlin (Mitte)", state: "Berlin 🇩🇪", lat: 52.5200, lon: 13.4050, address: "Berlin - Alexanderplatz (Einsatzbereich Mitte)", country: "DE" },
+      { name: "München (Zentrum)", state: "Bayern 🇩🇪", lat: 48.1371, lon: 11.5754, address: "München - Marienplatz", country: "DE" },
+      { name: "Hamburg (Hafen)", state: "Hamburg 🇩🇪", lat: 53.5438, lon: 9.9803, address: "Hamburg - Landungsbrücken", country: "DE" },
+      { name: "Frankfurt am Main", state: "Hessen 🇩🇪", lat: 50.1071, lon: 8.6638, address: "Frankfurt - Hauptbahnhof", country: "DE" },
+      { name: "Köln (Zentrum)", state: "NRW 🇩🇪", lat: 50.9364, lon: 6.9528, address: "Köln - Neumarkt", country: "DE" },
+      { name: "Stuttgart (Mitte)", state: "Baden-Württemberg 🇩🇪", lat: 48.7758, lon: 9.1829, address: "Stuttgart - Schlossplatz", country: "DE" },
+      { name: "Düsseldorf", state: "NRW 🇩🇪", lat: 51.2277, lon: 6.7735, address: "Düsseldorf - Königsallee", country: "DE" },
+      { name: "Hannover", state: "Niedersachsen 🇩🇪", lat: 52.3759, lon: 9.7320, address: "Hannover - Kröpcke", country: "DE" },
+      { name: "Nürnberg", state: "Bayern 🇩🇪", lat: 49.4478, lon: 11.0805, address: "Nürnberg - Hauptbahnhof", country: "DE" },
+      { name: "Leipzig", state: "Sachsen 🇩🇪", lat: 51.3397, lon: 12.3731, address: "Leipzig - Marktplatz", country: "DE" },
+      { name: "Freiburg im Breisgau", state: "Baden-Württemberg 🇩🇪", lat: 47.9990, lon: 7.8421, address: "Freiburg - Münsterplatz (Dreiländereck)", country: "DE" },
+
+      // ÖSTERREICH 🇦🇹
+      { name: "Wien (Stephansplatz)", state: "Wien 🇦🇹", lat: 48.2082, lon: 16.3738, address: "Wien - Stephansplatz (Zentrum)", country: "AT" },
+      { name: "Graz (Hauptplatz)", state: "Steiermark 🇦🇹", lat: 47.0707, lon: 15.4395, address: "Graz - Hauptplatz", country: "AT" },
+      { name: "Linz (Hauptplatz)", state: "Oberösterreich 🇦🇹", lat: 48.3064, lon: 14.2858, address: "Linz - Hauptplatz", country: "AT" },
+      { name: "Salzburg (Residenzplatz)", state: "Salzburg 🇦🇹", lat: 47.7981, lon: 13.0465, address: "Salzburg - Residenzplatz (Grenzbereich Bayern)", country: "AT" },
+      { name: "Innsbruck (Altstadt)", state: "Tirol 🇦🇹", lat: 47.2682, lon: 11.3933, address: "Innsbruck - Maria-Theresien-Straße", country: "AT" },
+      { name: "Bregenz / Feldkirch", state: "Vorarlberg 🇦🇹", lat: 47.5031, lon: 9.7471, address: "Bregenz - Bodensee / Rheintal", country: "AT" },
+
+      // SCHWEIZ 🇨🇭
+      { name: "Zürich (Paradeplatz)", state: "Zürich 🇨🇭", lat: 47.3698, lon: 8.5391, address: "Zürich - Paradeplatz", country: "CH" },
+      { name: "Bern (Bundesplatz)", state: "Bern 🇨🇭", lat: 46.9472, lon: 7.4441, address: "Bern - Bundesplatz", country: "CH" },
+      { name: "Basel (Dreiländereck)", state: "Basel-Stadt 🇨🇭", lat: 47.5584, lon: 7.5878, address: "Basel - Marktplatz (Grenzgebiet CH/DE/FR)", country: "CH" },
+      { name: "Luzern (Kapellbrücke)", state: "Luzern 🇨🇭", lat: 47.0516, lon: 8.3075, address: "Luzern - Zentrum", country: "CH" },
+      { name: "St. Gallen (Kloster)", state: "St. Gallen 🇨🇭", lat: 47.4239, lon: 9.3767, address: "St. Gallen - Marktplatz (Ostschweiz)", country: "CH" },
+      { name: "Genf / Genève", state: "Genève 🇨🇭", lat: 46.2009, lon: 6.1423, address: "Genève - Place Neuve", country: "CH" }
+    ];
+
+    // Master Hospitals Database (DACH Region)
+    const HOSPITALS = [
+      // ==========================================
+      // DEUTSCHLAND 🇩🇪
+      // ==========================================
+      { id: "charite_mitte", name: "Charité - Universitätsmedizin Berlin (Campus Mitte)", dept: "Zentrale Notaufnahme (ZNA)", lat: 52.5255, lon: 13.3778, address: "Charitéplatz 1, 10117 Berlin", phone: "+49 30 450553012", level: "Maximalversorgung", specs: ["ZNA", "CPU", "STROKE", "TRAUMA"], status: "AVAILABLE", heli: false, country: "DE" },
+      { id: "charite_cvk", name: "Charité Campus Virchow-Klinikum", dept: "Notaufnahme Campus Virchow (Schockraum)", lat: 52.5422, lon: 13.3444, address: "Augustenburger Platz 1, 13353 Berlin", phone: "+49 30 450553200", level: "Maximalversorgung", specs: ["ZNA", "CPU", "STROKE", "TRAUMA", "PEDIATRIC", "BURN"], status: "AVAILABLE", heli: true, country: "DE" },
+      { id: "ukb_berlin", name: "BG Klinikum Unfallkrankenhaus Berlin (UKB)", dept: "Überregionales Traumazentrum & ZNA", lat: 52.5186, lon: 13.5768, address: "Warener Str. 7, 12683 Berlin", phone: "+49 30 56811234", level: "Maximalversorgung", specs: ["ZNA", "TRAUMA", "BURN", "STROKE", "CPU"], status: "AVAILABLE", heli: true, country: "DE" },
+      { id: "vivantes_friedrichshain", name: "Vivantes Klinikum im Friedrichshain", dept: "Rettungsstelle Friedrichshain", lat: 52.5249, lon: 13.4354, address: "Landsberger Allee 49, 10249 Berlin", phone: "+49 30 130231600", level: "Maximalversorgung", specs: ["ZNA", "CPU", "STROKE", "TRAUMA", "PEDIATRIC"], status: "AVAILABLE", heli: true, country: "DE" },
+      { id: "lmu_grosshadern", name: "LMU Klinikum Großhadern", dept: "Notaufnahme Großhadern (Schockraum)", lat: 48.1114, lon: 11.4703, address: "Marchioninistr. 15, 81377 München", phone: "+49 89 440073000", level: "Maximalversorgung", specs: ["ZNA", "CPU", "STROKE", "TRAUMA", "BURN"], status: "AVAILABLE", heli: true, country: "DE" },
+      { id: "tum_rechts_der_isar", name: "Klinikum rechts der Isar (TUM)", dept: "Interdisziplinäre Notaufnahme (INA)", lat: 48.1362, lon: 11.6018, address: "Ismaninger Str. 22, 81675 München", phone: "+49 89 41402222", level: "Maximalversorgung", specs: ["ZNA", "CPU", "STROKE", "TRAUMA"], status: "AVAILABLE", heli: true, country: "DE" },
+      { id: "muenchen_schwabing", name: "München Klinik Schwabing", dept: "Notfallzentrum & Kinder-Notaufnahme", lat: 48.1728, lon: 11.5794, address: "Kölner Platz 1, 80804 München", phone: "+49 89 30682600", level: "Schwerpunkt", specs: ["ZNA", "PEDIATRIC", "CPU"], status: "AVAILABLE", heli: false, country: "DE" },
+      // HAMBURG (ALLE 15 KLINIKEN)
+      { id: "uke_hamburg", name: "Universitätsklinikum Hamburg-Eppendorf (UKE)", dept: "Zentrale Notaufnahme UKE", lat: 53.5919, lon: 9.9744, address: "Martinistr. 52, 20246 Hamburg", phone: "+49 40 741053000", level: "Maximalversorgung", specs: ["ZNA", "CPU", "STROKE", "TRAUMA", "PEDIATRIC", "PERINATAL"], status: "AVAILABLE", heli: true, country: "DE", note: "Überregionales Traumazentrum & ZNA 24/7" },
+      { id: "bg_klinikum_hamburg", name: "BG Klinikum Hamburg (Boberg)", dept: "Überregionales Traumazentrum & Schwerbrandverletzte", lat: 53.5042, lon: 10.1583, address: "Bergedorfer Str. 10, 21033 Hamburg", phone: "+49 40 73061234", level: "Maximalversorgung", specs: ["ZNA", "TRAUMA", "BURN", "CPU", "NEURO"], status: "AVAILABLE", heli: true, country: "DE", note: "Überregionales Traumazentrum, Zentrum für Schwerbrandverletzte, RTH Christoph 29" },
+      { id: "bundeswehrkrankenhaus_hamburg", name: "Bundeswehrkrankenhaus Hamburg", dept: "Interdisziplinäre Notaufnahme (INA) & Schockraum", lat: 53.5855, lon: 10.0988, address: "Lesserstraße 180, 22049 Hamburg", phone: "+49 40 694721111", level: "Maximalversorgung", specs: ["ZNA", "TRAUMA", "CPU", "STROKE", "NEURO"], status: "AVAILABLE", heli: true, country: "DE", note: "Zivile & militärische Notfallversorgung 24/7, Christoph Hansa" },
+      { id: "asklepios_st_georg", name: "Asklepios Klinik St. Georg", dept: "ZNA & Brandverletztenzentrum Nord", lat: 53.5594, lon: 10.0211, address: "Lohmühlenstraße 5, 20099 Hamburg", phone: "+49 40 1818852222", level: "Maximalversorgung", specs: ["ZNA", "CPU", "STROKE", "TRAUMA", "BURN"], status: "AVAILABLE", heli: true, country: "DE", note: "Schwerstverbranntenzentrum Nord & Herzkatheterlabor" },
+      { id: "asklepios_altona", name: "Asklepios Klinik Altona", dept: "ZNA Altona", lat: 53.5552, lon: 9.9075, address: "Paul-Ehrlich-Straße 1, 22763 Hamburg", phone: "+49 40 1818811111", level: "Schwerpunkt", specs: ["ZNA", "CPU", "STROKE", "TRAUMA"], status: "AVAILABLE", heli: true, country: "DE", note: "Große Notaufnahme Altona & Schockraum" },
+      { id: "asklepios_barmbek", name: "Asklepios Klinik Barmbek", dept: "Zentrale Notaufnahme Barmbek", lat: 53.6062, lon: 10.0458, address: "Rübenkamp 220, 22291 Hamburg", phone: "+49 40 1818822222", level: "Schwerpunkt", specs: ["ZNA", "CPU", "STROKE", "TRAUMA"], status: "AVAILABLE", heli: true, country: "DE", note: "Herzkatheterlabor & Stroke Unit 24h" },
+      { id: "asklepios_wandsbek", name: "Asklepios Klinik Wandsbek", dept: "Zentrale Notaufnahme Wandsbek", lat: 53.5678, lon: 10.0911, address: "Alphastraße 1, 22043 Hamburg", phone: "+49 40 1818832222", level: "Schwerpunkt", specs: ["ZNA", "CPU", "STROKE"], status: "AVAILABLE", heli: false, country: "DE", note: "CPU & Stroke Unit Wandsbek" },
+      { id: "asklepios_nord_heidberg", name: "Asklepios Klinik Nord - Heidberg", dept: "ZNA & Kinder-Notfallambulanz", lat: 53.6658, lon: 10.0275, address: "Tangstedter Landstraße 400, 22417 Hamburg", phone: "+49 40 1818873333", level: "Maximalversorgung", specs: ["ZNA", "CPU", "STROKE", "TRAUMA", "PEDIATRIC", "PERINATAL"], status: "AVAILABLE", heli: true, country: "DE", note: "Kinder-Notaufnahme & Schockraum Hamburg-Nord" },
+      { id: "asklepios_harburg", name: "Asklepios Klinik Harburg", dept: "Zentrale Notaufnahme Harburg & Schockraum", lat: 53.4542, lon: 9.9483, address: "Eißendorfer Pferdeweg 52, 21075 Hamburg", phone: "+49 40 1818862222", level: "Maximalversorgung", specs: ["ZNA", "CPU", "STROKE", "TRAUMA", "NEURO"], status: "AVAILABLE", heli: true, country: "DE", note: "Großes Notfallzentrum Hamburg Süd" },
+      { id: "marienkrankenhaus_hamburg", name: "Katholisches Marienkrankenhaus Hamburg", dept: "Zentrale Notaufnahme Marienkrankenhaus", lat: 53.5614, lon: 10.0294, address: "Alfredstraße 9, 22087 Hamburg", phone: "+49 40 25461111", level: "Schwerpunkt", specs: ["ZNA", "CPU", "STROKE", "TRAUMA"], status: "AVAILABLE", heli: false, country: "DE", note: "Zertifizierte Stroke Unit & Schockraum" },
+      { id: "albertinen_krankenhaus", name: "Albertinen-Krankenhaus Hamburg", dept: "ZNA & Herz- und Gefäßzentrum", lat: 53.6264, lon: 9.9236, address: "Süntelstraße 11a, 22457 Hamburg", phone: "+49 40 55882222", level: "Schwerpunkt", specs: ["ZNA", "CPU", "STROKE"], status: "AVAILABLE", heli: false, country: "DE", note: "Großes Herzzentrum & Notaufnahme" },
+      { id: "wilhelmstift_hamburg", name: "Kinderkrankenhaus Wilhelmstift", dept: "Pädiatrische Notaufnahme & Notfallambulanz", lat: 53.6014, lon: 10.1539, address: "Liliencronstraße 130, 22149 Hamburg", phone: "+49 40 67377222", level: "Schwerpunkt", specs: ["PEDIATRIC", "TRAUMA", "BURN"], status: "AVAILABLE", heli: true, country: "DE", note: "Spezialisierte Kinder-Notaufnahme & Kindertrauma 24/7" },
+      { id: "amalie_sieveking", name: "Ev. Amalie Sieveking-Krankenhaus", dept: "Zentrale Notaufnahme", lat: 53.6558, lon: 10.1683, address: "Haselkamp 33, 22359 Hamburg", phone: "+49 40 64411222", level: "Regelversorgung", specs: ["ZNA", "CPU"], status: "AVAILABLE", heli: false, country: "DE", note: "Notaufnahme Volksdorf" },
+      { id: "mariahilf_hamburg", name: "Helios Mariahilf Klinik Hamburg", dept: "Notfallaufnahme & Kinderklinik", lat: 53.4683, lon: 9.9486, address: "Stader Straße 203c, 21075 Hamburg", phone: "+49 40 79006222", level: "Regelversorgung", specs: ["ZNA", "PEDIATRIC"], status: "AVAILABLE", heli: false, country: "DE", note: "Notfallambulanz & Pädiatrie Heimfeld" },
+      { id: "diakonieklinikum_hamburg", name: "Agaplesion Diakonieklinikum Hamburg", dept: "Zentrale Notaufnahme", lat: 53.5753, lon: 9.9678, address: "Hohe Weide 17, 20259 Hamburg", phone: "+49 40 79020222", level: "Regelversorgung", specs: ["ZNA"], status: "AVAILABLE", heli: false, country: "DE", note: "Notaufnahme Eimsbüttel" },
+      // WEITERE DEUTSCHE METROPOLEN
+      { id: "uni_frankfurt", name: "Universitätsklinikum Frankfurt", dept: "ZNA Haus 23", lat: 50.0933, lon: 8.6599, address: "Theodor-Stern-Kai 7, 60590 Frankfurt", phone: "+49 69 63015112", level: "Maximalversorgung", specs: ["ZNA", "CPU", "STROKE", "TRAUMA", "PEDIATRIC"], status: "AVAILABLE", heli: true, country: "DE" },
+      { id: "bg_unfall_frankfurt", name: "BG Unfallklinik Frankfurt am Main (BGU)", dept: "Notaufnahme & Schockraum BGU", lat: 50.1558, lon: 8.6972, address: "Friedberger Landstr. 430, 60389 Frankfurt", phone: "+49 69 4752222", level: "Maximalversorgung", specs: ["ZNA", "TRAUMA", "BURN"], status: "AVAILABLE", heli: true, country: "DE" },
+      { id: "uni_koeln", name: "Uniklinik Köln", dept: "Zentrale Notaufnahme Gebäude 26", lat: 50.9255, lon: 6.9189, address: "Kerpener Str. 62, 50937 Köln", phone: "+49 221 4788888", level: "Maximalversorgung", specs: ["ZNA", "CPU", "STROKE", "TRAUMA", "PEDIATRIC"], status: "AVAILABLE", heli: true, country: "DE" },
+      { id: "klinikum_stuttgart_katharinen", name: "Klinikum Stuttgart - Katharinenhospital", dept: "Interdisziplinäres Notfallzentrum", lat: 48.7845, lon: 9.1722, address: "Kriegsbergstraße 60, 70174 Stuttgart", phone: "+49 711 27830303", level: "Maximalversorgung", specs: ["ZNA", "CPU", "STROKE", "TRAUMA"], status: "AVAILABLE", heli: true, country: "DE" },
+      { id: "klinikum_nuernberg_sued", name: "Klinikum Nürnberg Süd", dept: "Notfallzentrum Süd", lat: 49.4061, lon: 11.1189, address: "Breslauer Str. 201, 90471 Nürnberg", phone: "+49 911 3982440", level: "Maximalversorgung", specs: ["ZNA", "CPU", "STROKE", "TRAUMA", "BURN", "PEDIATRIC"], status: "AVAILABLE", heli: true, country: "DE" },
+      { id: "mhh_hannover", name: "Medizinische Hochschule Hannover (MHH)", dept: "ZNA MHH & Überregionales Traumazentrum", lat: 52.3831, lon: 9.8058, address: "Carl-Neuberg-Straße 1, 30625 Hannover", phone: "+49 511 5322052", level: "Maximalversorgung", specs: ["ZNA", "CPU", "STROKE", "TRAUMA", "BURN", "PEDIATRIC"], status: "AVAILABLE", heli: true, country: "DE" },
+      { id: "uniklinik_duesseldorf", name: "Universitätsklinikum Düsseldorf", dept: "Interdisziplinäre Notaufnahme (INA)", lat: 51.1969, lon: 6.7936, address: "Moorenstraße 5, 40225 Düsseldorf", phone: "+49 211 8117012", level: "Maximalversorgung", specs: ["ZNA", "CPU", "STROKE", "TRAUMA", "PEDIATRIC"], status: "AVAILABLE", heli: true, country: "DE" },
+      { id: "uniklinik_leipzig", name: "Universitätsklinikum Leipzig", dept: "Zentrale Notfallaufnahme Liebigstraße", lat: 51.3308, lon: 12.3853, address: "Liebigstraße 20, 04103 Leipzig", phone: "+49 341 9717000", level: "Maximalversorgung", specs: ["ZNA", "CPU", "STROKE", "TRAUMA", "PEDIATRIC"], status: "AVAILABLE", heli: true, country: "DE" },
+      { id: "uniklinik_freiburg", name: "Universitätsklinikum Freiburg", dept: "Interdisziplinäres Notfallzentrum (INZ)", lat: 48.0061, lon: 7.8389, address: "Sir-Hans-A.-Krebs-Straße, 79106 Freiburg", phone: "+49 761 27033333", level: "Maximalversorgung", specs: ["ZNA", "CPU", "STROKE", "TRAUMA", "PEDIATRIC"], status: "AVAILABLE", heli: true, country: "DE", note: "Notfallzentrum Südbaden / Dreiländereck CH/FR" },
+
+      // ==========================================
+      // ÖSTERREICH 🇦🇹 (NOTRUF 144 / 112)
+      // ==========================================
+      { id: "akh_wien", name: "Allgemeines Krankenhaus der Stadt Wien (AKH Wien)", dept: "Universitäre Notfallambulanz (ZNA Ebene 6)", lat: 48.2206, lon: 16.3475, address: "Währinger Gürtel 18-20, 1090 Wien", phone: "+43 1 4040019640", level: "Maximalversorgung", specs: ["ZNA", "CPU", "STROKE", "TRAUMA", "PEDIATRIC", "BURN", "PERINATAL"], status: "AVAILABLE", heli: true, country: "AT", note: "Größtes Uniklinikum Österreichs, Schockraum 24/7" },
+      { id: "auva_traumazentrum_meidling", name: "AUVA Traumazentrum Wien - Meidling", dept: "Überregionales Traumazentrum & Schockraum", lat: 48.1697, lon: 16.3312, address: "Kundratstraße 37, 1120 Wien", phone: "+43 5 939345111", level: "Maximalversorgung", specs: ["ZNA", "TRAUMA"], status: "AVAILABLE", heli: true, country: "AT", note: "Spezialisiertes Polytraumazentrum Wien & RTH Landeplatz" },
+      { id: "klinik_donaustadt", name: "Klinik Donaustadt (Wien)", dept: "Zentrale Notaufnahme & Pädiatrie (ehem. SMZ Ost)", lat: 48.2250, lon: 16.4633, address: "Langobardenstraße 122, 1220 Wien", phone: "+43 1 288022050", level: "Schwerpunkt", specs: ["ZNA", "CPU", "STROKE", "TRAUMA", "PEDIATRIC"], status: "AVAILABLE", heli: true, country: "AT" },
+      { id: "lkh_univ_graz", name: "LKH-Universitätsklinikum Graz", dept: "Zentrale Notfallaufnahme (ZNA) & Schockraum", lat: 47.0817, lon: 15.4678, address: "Auenbruggerplatz 1, 8036 Graz", phone: "+43 316 38512222", level: "Maximalversorgung", specs: ["ZNA", "CPU", "STROKE", "TRAUMA", "PEDIATRIC", "BURN"], status: "AVAILABLE", heli: true, country: "AT", note: "Maximalversorger Steiermark, RTH Christophorus 12" },
+      { id: "kepler_uniklinikum_linz", name: "Kepler Universitätsklinikum Linz (Med Campus III)", dept: "Zentrales Notfallzentrum & Schockraum", lat: 48.3039, lon: 14.3056, address: "Krankenhausstraße 9, 4020 Linz", phone: "+43 5 7680831200", level: "Maximalversorgung", specs: ["ZNA", "CPU", "STROKE", "TRAUMA", "PEDIATRIC"], status: "AVAILABLE", heli: true, country: "AT", note: "Universitäre Notaufnahme OÖ, Christophorus 10" },
+      { id: "uniklinikum_salzburg", name: "Uniklinikum Salzburg (Landeskrankenhaus LKH)", dept: "Universitäres Notfallzentrum & Schockraum", lat: 47.8058, lon: 13.0294, address: "Müllner Hauptstraße 48, 5020 Salzburg", phone: "+43 5725521000", level: "Maximalversorgung", specs: ["ZNA", "CPU", "STROKE", "TRAUMA", "PEDIATRIC"], status: "AVAILABLE", heli: true, country: "AT", note: "Notfallzentrum Salzburg & Grenzregion Bayern (BGL)" },
+      { id: "tirol_kliniken_innsbruck", name: "LKH Innsbruck - Universitätskliniken (Tirol)", dept: "Zentrale Notfallaufnahme & Alpines Traumazentrum", lat: 47.2625, lon: 11.3853, address: "Anichstraße 35, 6020 Innsbruck", phone: "+43 50 50422700", level: "Maximalversorgung", specs: ["ZNA", "CPU", "STROKE", "TRAUMA", "PEDIATRIC", "BURN"], status: "AVAILABLE", heli: true, country: "AT", note: "Alpines Polytraumazentrum & ECMO / Unterkühlungen" },
+      { id: "klinikum_klagenfurt", name: "Klinikum Klagenfurt am Wörthersee", dept: "Zentrale Notfallaufnahme (ZNA) & Traumazentrum", lat: 46.6347, lon: 14.3214, address: "Feschnigstraße 11, 9020 Klagenfurt", phone: "+43 463 53822200", level: "Schwerpunkt", specs: ["ZNA", "CPU", "STROKE", "TRAUMA", "PEDIATRIC"], status: "AVAILABLE", heli: true, country: "AT" },
+      { id: "lkh_feldkirch", name: "Landeskrankenhaus Feldkirch", dept: "Notfallambulanz & Schockraumzentrum Vorarlberg", lat: 47.2514, lon: 9.6106, address: "Carinagasse 47, 6800 Feldkirch", phone: "+43 5522 3032000", level: "Schwerpunkt", specs: ["ZNA", "CPU", "STROKE", "TRAUMA"], status: "AVAILABLE", heli: true, country: "AT", note: "Schwerpunktspital Vorarlberg & Dreiländereck AT/CH/FL" },
+
+      // ==========================================
+      // SCHWEIZ 🇨🇭 (NOTRUF 144 / 112)
+      // ==========================================
+      { id: "usz_zuerich", name: "Universitätsspital Zürich (USZ)", dept: "Notfallzentrum für Erwachsene (USZ)", lat: 47.3769, lon: 8.5492, address: "Rämistrasse 100, 8091 Zürich", phone: "+41 44 2557070", level: "Maximalversorgung", specs: ["ZNA", "CPU", "STROKE", "TRAUMA", "BURN"], status: "AVAILABLE", heli: true, country: "CH", note: "Universitäres Notfallzentrum & Schwerbrandverletzte, Rega" },
+      { id: "kispi_zuerich", name: "Kinderspital Zürich (Eleonorenstiftung)", dept: "Notfallzentrum für Kinder und Jugendliche (Kispi)", lat: 47.3508, lon: 8.5772, address: "Lenggstrasse 30, 8008 Zürich", phone: "+41 44 2667110", level: "Schwerpunkt", specs: ["PEDIATRIC", "TRAUMA", "BURN"], status: "AVAILABLE", heli: true, country: "CH", note: "Größtes pädiatrisches Notfallzentrum der Schweiz 24/7" },
+      { id: "triemli_zuerich", name: "Stadtspital Zürich - Standort Triemli", dept: "Notfallzentrum Triemli", lat: 47.3664, lon: 8.4983, address: "Birmensdorferstrasse 497, 8063 Zürich", phone: "+41 44 4161212", level: "Schwerpunkt", specs: ["ZNA", "CPU", "STROKE", "TRAUMA"], status: "AVAILABLE", heli: true, country: "CH" },
+      { id: "inselspital_bern", name: "Inselspital Universitätsspital Bern", dept: "Universitäres Notfallzentrum (UNZ)", lat: 46.9483, lon: 7.4242, address: "Freiburgstrasse 18, 3010 Bern", phone: "+41 31 6322402", level: "Maximalversorgung", specs: ["ZNA", "CPU", "STROKE", "TRAUMA", "PEDIATRIC"], status: "AVAILABLE", heli: true, country: "CH", note: "Maximalversorgung Mittelland, Schockraum & Rega 3" },
+      { id: "usb_basel", name: "Universitätsspital Basel (USB)", dept: "Notfallzentrum USB & Schockraum", lat: 47.5628, lon: 7.5833, address: "Petersgraben 4, 4031 Basel", phone: "+41 61 2653848", level: "Maximalversorgung", specs: ["ZNA", "CPU", "STROKE", "TRAUMA"], status: "AVAILABLE", heli: true, country: "CH", note: "Überregionales Notfallzentrum Dreiländereck CH/DE/FR" },
+      { id: "ukbb_basel", name: "UKBB - Kinderspital beider Basel", dept: "Pädiatrische Notfallstation", lat: 47.5622, lon: 7.5794, address: "Spitalstrasse 33, 4056 Basel", phone: "+41 61 7041200", level: "Schwerpunkt", specs: ["PEDIATRIC", "TRAUMA"], status: "AVAILABLE", heli: false, country: "CH" },
+      { id: "luks_luzern", name: "Luzerner Kantonsspital (LUKS Luzern)", dept: "Interdisziplinäres Notfallzentrum & Schockraum", lat: 47.0592, lon: 8.2981, address: "Spitalstrasse 1, 6000 Luzern", phone: "+41 41 2054100", level: "Schwerpunkt", specs: ["ZNA", "CPU", "STROKE", "TRAUMA", "PEDIATRIC"], status: "AVAILABLE", heli: true, country: "CH", note: "Notfallversorger Zentralschweiz & Helipad" },
+      { id: "kssg_st_gallen", name: "Kantonsspital St. Gallen (KSSG)", dept: "Notfallzentrum KSSG & Traumazentrum", lat: 47.4300, lon: 9.3850, address: "Rorschacher Strasse 95, 9007 St. Gallen", phone: "+41 71 4941000", level: "Maximalversorgung", specs: ["ZNA", "CPU", "STROKE", "TRAUMA"], status: "AVAILABLE", heli: true, country: "CH", note: "Zentralspital Ostschweiz & Bodensee, Rega Basis" },
+      { id: "ksgr_chur", name: "Kantonsspital Graubünden (KSGR Chur)", dept: "Notfallstation & Alpines Traumazentrum", lat: 46.8586, lon: 9.5372, address: "Loëstrasse 170, 7000 Chur", phone: "+41 81 2566222", level: "Schwerpunkt", specs: ["ZNA", "CPU", "STROKE", "TRAUMA"], status: "AVAILABLE", heli: true, country: "CH", note: "Alpines Traumazentrum Graubünden & Rega 5" },
+      { id: "chuv_lausanne", name: "CHUV Centre Hospitalier Universitaire Vaudois", dept: "Centre des Urgences & Grands Brûlés", lat: 46.5253, lon: 6.6439, address: "Rue du Bugnon 46, 1011 Lausanne", phone: "+41 21 3140000", level: "Maximalversorgung", specs: ["ZNA", "CPU", "STROKE", "TRAUMA", "BURN", "PEDIATRIC"], status: "AVAILABLE", heli: true, country: "CH", note: "Centre hospitalier universitaire Romandie, Héliport Rega" },
+      { id: "hug_geneve", name: "HUG - Hôpitaux Universitaires de Genève", dept: "Service des Urgences HUG", lat: 46.1925, lon: 6.1492, address: "Rue Gabrielle-Perret-Gentil 4, 1205 Genève", phone: "+41 22 3728120", level: "Maximalversorgung", specs: ["ZNA", "CPU", "STROKE", "TRAUMA", "PEDIATRIC"], status: "AVAILABLE", heli: true, country: "CH" }
+    ];
+
+    // State
+    let currentLat = 52.5200;
+    let currentLon = 13.4050;
+    let isLiveGps = true;
+    let gpsWatchId = null;
+    let selectedCountry = 'ALL'; // 'ALL', 'DE', 'AT', 'CH'
+    let selectedSpecialty = 'ALL';
+    let selectedRadiusKm = 35; // Default 35 km radius
+    let sortMode = 'ETA'; // 'ETA' or 'DISTANCE'
+    let searchQuery = '';
+    let selectedHospitalForModal = null;
+    let currentRouteData = null;
+    let mapInstance = null;
+    let routePolyline = null;
+    let markersLayer = null;
+    let currentTriage = 'ROT';
+    const osmLoadedMap = new Set();
+
+
+    // Haversine Distance in meters
+    function getDistanceMeters(lat1, lon1, lat2, lon2) {
+      const R = 6371e3;
+      const φ1 = lat1 * Math.PI / 180;
+      const φ2 = lat2 * Math.PI / 180;
+      const Δφ = (lat2 - lat1) * Math.PI / 180;
+      const Δλ = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ/2) * Math.sin(Δλ/2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      return R * c;
+    }
+
+    // Dynamic OpenStreetMap Overpass lookup
+    async function fetchNearbyOsmHospitals(lat, lon) {
+      const coordKey = `${lat.toFixed(2)}_${lon.toFixed(2)}`;
+      if (osmLoadedMap.has(coordKey)) return;
+      osmLoadedMap.add(coordKey);
+
+      try {
+        const q = `[out:json][timeout:8];(node["amenity"="hospital"](around:40000,${lat},${lon});way["amenity"="hospital"](around:40000,${lat},${lon}););out center tags 35;`;
+        const res = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(q)}`);
+        if (res.ok) {
+          const json = await res.json();
+          if (json.elements) {
+            json.elements.forEach(el => {
+              const tags = el.tags || {};
+              const name = tags.name;
+              if (!name) return;
+              const elLat = el.lat || (el.center && el.center.lat);
+              const elLon = el.lon || (el.center && el.center.lon);
+              if (!elLat || !elLon) return;
+
+              const isDuplicate = HOSPITALS.some(ex => getDistanceMeters(ex.lat, ex.lon, elLat, elLon) < 450);
+              if (!isDuplicate) {
+                const lower = name.toLowerCase();
+                const specs = ["ZNA"];
+                if (lower.includes("herz") || lower.includes("kardio") || lower.includes("cpu")) specs.push("CPU");
+                if (lower.includes("schlaganfall") || lower.includes("stroke") || lower.includes("neuro")) specs.push("STROKE");
+                if (lower.includes("unfall") || lower.includes("trauma") || lower.includes("bg klin")) specs.push("TRAUMA");
+                if (lower.includes("kinder") || lower.includes("pädiatr")) specs.push("PEDIATRIC");
+
+                let countryCode = "DE";
+                if (elLat >= 46.37 && elLat <= 49.02 && elLon >= 9.53 && elLon <= 17.16) countryCode = "AT";
+                else if (elLat >= 45.81 && elLat <= 47.81 && elLon >= 5.95 && elLon <= 10.49) countryCode = "CH";
+                const fallbackPhone = countryCode === "AT" ? "+43 144" : (countryCode === "CH" ? "+41 144" : "+49 112");
+
+                HOSPITALS.push({
+                  id: "osm_" + el.id,
+                  name: name,
+                  dept: "Notaufnahme / Notfallambulanz",
+                  lat: elLat,
+                  lon: elLon,
+                  address: tags['addr:street'] ? `${tags['addr:street']} ${tags['addr:housenumber'] || ''}` : 'Klinikbereich',
+                  phone: tags.phone || tags['contact:phone'] || fallbackPhone,
+                  level: lower.includes("universit") ? "Maximalversorgung" : (lower.includes("klinikum") ? "Schwerpunkt" : "Regelversorgung"),
+                  specs: specs,
+                  status: "AVAILABLE",
+                  heli: !!tags.heliport || !!tags['aeroway:helipad'],
+                  country: countryCode,
+                  note: "OpenStreetMap Live-Verbindung"
+                });
+              }
+            });
+            renderList();
+          }
+        }
+      } catch (e) {
+        console.log("OSM Overpass query notice:", e);
+      }
+    }
+
+    // Geolocation Setup
+    function initGps() {
+      if ('geolocation' in navigator) {
+        gpsWatchId = navigator.geolocation.watchPosition(
+          (pos) => {
+            currentLat = pos.coords.latitude;
+            currentLon = pos.coords.longitude;
+            const accuracy = Math.round(pos.coords.accuracy || 10);
+            const speedKmh = pos.coords.speed ? Math.round(pos.coords.speed * 3.6) : 0;
+            
+            document.getElementById('gps-indicator').className = 'gps-dot';
+            document.getElementById('gps-label').textContent = 'LIVE GPS AKTIV';
+            document.getElementById('telemetry-coords').textContent = `${currentLat.toFixed(4)}° N, ${currentLon.toFixed(4)}° E (±${accuracy}m)`;
+            document.getElementById('telemetry-speed').textContent = speedKmh > 0 ? `${speedKmh} km/h` : 'Stand';
+            
+            reverseGeocode(currentLat, currentLon);
+            fetchNearbyOsmHospitals(currentLat, currentLon);
+            renderList();
+          },
+          (err) => {
+            console.warn('GPS position error or permission denied:', err);
+            document.getElementById('gps-indicator').className = 'gps-dot simulated';
+            document.getElementById('gps-label').textContent = 'SIMULATION';
+            fetchNearbyOsmHospitals(currentLat, currentLon);
+            renderList();
+          },
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 3000 }
+        );
+      }
+    }
+
+    async function reverseGeocode(lat, lon) {
+      try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=16`);
+        if (res.ok) {
+          const data = await res.json();
+          const road = data.address.road || '';
+          const suburb = data.address.suburb || data.address.city || '';
+          document.getElementById('location-address-text').textContent = road ? `${road}, ${suburb}` : (data.display_name || `${lat.toFixed(4)}, ${lon.toFixed(4)}`);
+        }
+      } catch (e) {
+        document.getElementById('location-address-text').textContent = `Standort: ${lat.toFixed(4)}° N, ${lon.toFixed(4)}° E`;
+      }
+    }
+
+    // Calculate Routing with OSRM (100% Free)
+    async function fetchOsrmRoute(startLat, startLon, destLat, destLon) {
+      try {
+        const url = `https://router.project-osrm.org/route/v1/driving/${startLon},${startLat};${destLon},${destLat}?overview=full&geometries=geojson&steps=true`;
+        const res = await fetch(url);
+        if (res.ok) {
+          const json = await res.json();
+          if (json.routes && json.routes.length > 0) {
+            const r = json.routes[0];
+            const steps = r.legs[0].steps.map(s => ({
+              text: s.maneuver.type === 'arrive' ? 'Ziel Notaufnahme erreicht' : (s.name ? `Weiter auf ${s.name}` : 'Dem Straßenverlauf folgen'),
+              dist: Math.round(s.distance)
+            }));
+            return {
+              distanceMeters: r.distance,
+              durationSeconds: r.duration,
+              coordinates: r.geometry.coordinates.map(c => [c[1], c[0]]),
+              steps: steps
+            };
+          }
+        }
+      } catch (e) {
+        console.warn('OSRM route fetch failed, using fallback:', e);
+      }
+
+      // Robust Fallback Calculation
+      const beeline = getDistanceMeters(startLat, startLon, destLat, destLon);
+      const estDistance = beeline * 1.32;
+      const estDuration = (estDistance / 1000 / 42) * 3600; // 42 km/h avg emergency transit speed
+      return {
+        distanceMeters: estDistance,
+        durationSeconds: estDuration,
+        coordinates: [[startLat, startLon], [destLat, destLon]],
+        steps: [
+          { text: 'Starten mit Sondersignal auf Hauptverkehrsachse', dist: Math.round(estDistance * 0.2) },
+          { text: 'Direktroute Richtung Zielnotaufnahme folgen', dist: Math.round(estDistance * 0.7) },
+          { text: 'Zufahrt Notaufnahme / Rettungswache', dist: Math.round(estDistance * 0.1) }
+        ]
+      };
+    }
+
+    // Launch Navigation (iOS Apple Maps vs Google Maps)
+    function launchNav(lat, lon, name) {
+      if (isIos) {
+        // Apple Maps direct driving navigation URL scheme
+        window.location.href = `maps://?daddr=${lat},${lon}&dirflg=d`;
+      } else {
+        // Android / Universal Google Maps Intent
+        window.location.href = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}&travelmode=driving`;
+      }
+    }
+
+    // Render Hospital Cards
+    function renderList() {
+      const container = document.getElementById('hospital-list-container');
+      const query = searchQuery.trim().toLowerCase();
+
+      // Compute distances
+      const enriched = HOSPITALS.map(h => {
+        const beeline = getDistanceMeters(currentLat, currentLon, h.lat, h.lon);
+        const estRoadDist = Math.round(beeline * 1.32);
+        const estDurationMin = Math.max(1, Math.round((estRoadDist / 1000 / 42) * 60));
+        return {
+          ...h,
+          beelineMeters: beeline,
+          roadDistanceMeters: estRoadDist,
+          durationMin: estDurationMin
+        };
+      });
+
+      // Filter
+      const filtered = enriched.filter(h => {
+        const matchCountry = selectedCountry === 'ALL' || h.country === selectedCountry;
+        const matchQuery = !query || h.name.toLowerCase().includes(query) || h.address.toLowerCase().includes(query);
+        const matchSpec = selectedSpecialty === 'ALL' || h.specs.includes(selectedSpecialty);
+        const matchRadius = selectedRadiusKm >= 999 || (h.beelineMeters / 1000) <= selectedRadiusKm;
+        return matchCountry && matchQuery && matchSpec && matchRadius;
+      });
+
+      // Sort
+      if (sortMode === 'ETA') {
+        filtered.sort((a, b) => a.durationMin - b.durationMin);
+      } else {
+        filtered.sort((a, b) => a.beelineMeters - b.beelineMeters);
+      }
+
+      const countryPrefix = selectedCountry === 'DE' ? '🇩🇪 DE ' : (selectedCountry === 'AT' ? '🇦🇹 AT ' : (selectedCountry === 'CH' ? '🇨🇭 CH ' : '🌍 DACH '));
+      document.getElementById('hospitals-count-text').textContent = `${filtered.length} Notaufnahmen (${countryPrefix}• ${selectedRadiusKm >= 999 ? 'Alle Entfernungen' : '≤ ' + selectedRadiusKm + ' km'})`;
+
+      if (filtered.length === 0) {
+        container.innerHTML = `
+          <div style="text-align: center; padding: 40px 20px; color: var(--text-muted);">
+            <div style="font-size: 40px; margin-bottom: 10px;">🏥</div>
+            <div style="font-size: 16px; font-weight: 700; color: white;">Keine Notaufnahmen gefunden</div>
+            <div style="font-size: 12px; margin-top: 6px;">Filter oder Land zurücksetzen.</div>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = filtered.map(h => {
+        const kmStr = (h.roadDistanceMeters / 1000).toFixed(1) + ' km';
+        const beelineStr = (h.beelineMeters / 1000).toFixed(1) + ' km Luftlinie';
+        const statusClass = h.status === 'AVAILABLE' ? 'available' : (h.status === 'RESTRICTED' ? 'restricted' : 'closed');
+        const statusText = h.status === 'AVAILABLE' ? 'Aufnahmebereit' : (h.status === 'RESTRICTED' ? 'Eingeschränkt' : 'Abgemeldet');
+        const flag = h.country === 'AT' ? '🇦🇹 AT' : (h.country === 'CH' ? '🇨🇭 CH' : '🇩🇪 DE');
+
+        return `
+          <div class="hospital-card" data-id="${h.id}">
+            <div class="card-top">
+              <div class="eta-badge">
+                <span>🚗</span>
+                <span class="eta-minutes">${h.durationMin} Min</span>
+                <span class="eta-km">(${kmStr})</span>
+              </div>
+              <div class="status-pill ${statusClass}" onclick="toggleBedStatus('${h.id}')">
+                ● ${statusText}
+              </div>
+            </div>
+            <div>
+              <div class="hosp-name">${h.name}</div>
+              <div class="hosp-dept"><span class="country-flag-badge">${flag}</span> ${h.dept} • ${h.level}</div>
+              <div class="hosp-address">${h.address} • ${beelineStr}</div>
+            </div>
+            <div class="specialties-row">
+              ${h.specs.map(s => `<span class="spec-tag">${s}</span>`).join('')}
+              ${h.heli ? `<span class="spec-tag heli">🚁 Heliport (RTH)</span>` : ''}
+            </div>
+            <div class="card-actions">
+              <button class="btn-nav-primary" onclick="launchNav(${h.lat}, ${h.lon}, '${h.name.replace(/'/g, "\\'")}')">
+                🧭 Navigation (${h.durationMin} Min)
+              </button>
+              <button class="btn-action-icon" title="Route auf Karte anzeigen" onclick="openRouteModal('${h.id}')">
+                🗺️
+              </button>
+              <a href="tel:${h.phone.replace(/\\s+/g, '')}" class="btn-action-icon" title="Notaufnahme anrufen">
+                📞
+              </a>
+              <button class="btn-action-icon" title="Voranmeldung erstellen" onclick="openPrenotifyModal('${h.id}')">
+                📋
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // Toggle Bed Status
+    window.toggleBedStatus = function(id) {
+      const h = HOSPITALS.find(x => x.id === id);
+      if (h) {
+        h.status = h.status === 'AVAILABLE' ? 'RESTRICTED' : (h.status === 'RESTRICTED' ? 'CLOSED' : 'AVAILABLE');
+        renderList();
+      }
+    };
+
+    // Open Route Modal
+    window.openRouteModal = async function(id) {
+      const h = HOSPITALS.find(x => x.id === id);
+      if (!h) return;
+      selectedHospitalForModal = h;
+
+      document.getElementById('modal-hosp-name').textContent = h.name;
+      document.getElementById('modal-hosp-address').textContent = `${h.dept} • ${h.address}`;
+      document.getElementById('modal-route-duration').textContent = 'Berechne...';
+      document.getElementById('modal-route-distance').textContent = '-- km';
+      document.getElementById('modal-steps-container').innerHTML = '<div style="padding: 10px; color: var(--text-muted);">Lade schnellste PKW-Fahrstrecke...</div>';
+
+      document.getElementById('route-modal').classList.add('active');
+
+      // Init Leaflet Map if needed
+      setTimeout(async () => {
+        if (!mapInstance) {
+          mapInstance = L.map('route-map', { zoomControl: false });
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 18,
+            attribution: '© OpenStreetMap'
+          }).addTo(mapInstance);
+          markersLayer = L.layerGroup().addTo(mapInstance);
+        } else {
+          mapInstance.invalidateSize();
+          markersLayer.clearLayers();
+        }
+
+        const route = await fetchOsrmRoute(currentLat, currentLon, h.lat, h.lon);
+        currentRouteData = route;
+
+        const durMin = Math.max(1, Math.round(route.durationSeconds / 60));
+        const distKm = (route.distanceMeters / 1000).toFixed(1);
+
+        document.getElementById('modal-route-duration').textContent = `${durMin} Min`;
+        document.getElementById('modal-route-distance').textContent = `${distKm} km`;
+
+        // Draw Polyline & Markers
+        if (routePolyline) mapInstance.removeLayer(routePolyline);
+        routePolyline = L.polyline(route.coordinates, { color: '#00E5FF', weight: 5, opacity: 0.9 }).addTo(mapInstance);
+
+        // RTW Marker
+        L.circleMarker([currentLat, currentLon], { radius: 8, color: '#01579B', fillColor: '#00E5FF', fillOpacity: 1 }).addTo(markersLayer)
+          .bindPopup('🚑 RTW-Standort');
+
+        // Hospital Marker
+        L.circleMarker([h.lat, h.lon], { radius: 9, color: '#FFFFFF', fillColor: '#D32F2F', fillOpacity: 1 }).addTo(markersLayer)
+          .bindPopup(`🏥 ${h.name}`);
+
+        mapInstance.fitBounds(routePolyline.getBounds(), { padding: [30, 30] });
+
+        // Steps List
+        document.getElementById('modal-steps-container').innerHTML = route.steps.map((s, idx) => `
+          <div class="step-item">
+            <div class="step-num">${idx + 1}</div>
+            <div>
+              <div style="font-weight: 600;">${s.text}</div>
+              <div style="color: var(--text-muted); font-size: 10px;">ca. ${s.dist} m</div>
+            </div>
+          </div>
+        `).join('');
+      }, 100);
+    };
+
+    document.getElementById('btn-close-route').addEventListener('click', () => {
+      document.getElementById('route-modal').classList.remove('active');
+    });
+
+    document.getElementById('btn-modal-launch-nav').addEventListener('click', () => {
+      if (selectedHospitalForModal) {
+        launchNav(selectedHospitalForModal.lat, selectedHospitalForModal.lon, selectedHospitalForModal.name);
+      }
+    });
+
+    // Open Voranmeldung Modal
+    window.openPrenotifyModal = function(id) {
+      const h = HOSPITALS.find(x => x.id === id);
+      if (!h) return;
+      selectedHospitalForModal = h;
+      document.getElementById('prenotify-hosp-name').textContent = h.name;
+      
+      const beeline = getDistanceMeters(currentLat, currentLon, h.lat, h.lon);
+      const estMin = Math.max(1, Math.round((beeline * 1.32 / 1000 / 42) * 60));
+      document.getElementById('vn-eta').value = estMin;
+
+      document.getElementById('prenotify-modal').classList.add('active');
+    };
+
+    document.getElementById('btn-close-prenotify').addEventListener('click', () => {
+      document.getElementById('prenotify-modal').classList.remove('active');
+    });
+
+    // Triage Buttons
+    const triageBtns = [
+      { id: 'btn-triage-red', val: 'ROT' },
+      { id: 'btn-triage-yellow', val: 'GELB' },
+      { id: 'btn-triage-green', val: 'GRÜN' }
+    ];
+    triageBtns.forEach(t => {
+      document.getElementById(t.id).addEventListener('click', () => {
+        currentTriage = t.val;
+        triageBtns.forEach(x => document.getElementById(x.id).classList.remove('active'));
+        document.getElementById(t.id).classList.add('active');
+      });
+    });
+
+    // Share Voranmeldung (Native iOS Share Sheet or Clipboard)
+    document.getElementById('btn-share-prenotify').addEventListener('click', async () => {
+      const hName = selectedHospitalForModal ? selectedHospitalForModal.name : 'Zentrale Notaufnahme';
+      const text = `🚨 RTW VORANMELDUNG 🚨
+Ziel: ${hName}
+Triage: [${currentTriage}]
+Patient: ${document.getElementById('vn-age').value} J., ${document.getElementById('vn-gender').value}
+Verdachtsdiagnose: ${document.getElementById('vn-diagnosis').value}
+Vitalwerte: HF ${document.getElementById('vn-hf').value}/min | RR ${document.getElementById('vn-rr').value} mmHg | SpO2 ${document.getElementById('vn-spo2').value}
+ETA (Ankunftszeit): ca. ${document.getElementById('vn-eta').value} Min
+Besonderheiten: ${document.getElementById('vn-notes').value}
+RTW-Standort: ${document.getElementById('location-address-text').textContent}`;
+
+      if (navigator.share) {
+        try {
+          await navigator.share({
+            title: 'RTW Voranmeldung',
+            text: text
+          });
+        } catch (e) {}
+      } else {
+        await navigator.clipboard.writeText(text);
+        alert('Voranmeldung in Zwischenablage kopiert!');
+      }
+    });
+
+    document.getElementById('btn-call-from-prenotify').addEventListener('click', () => {
+      if (selectedHospitalForModal) {
+        window.location.href = `tel:${selectedHospitalForModal.phone.replace(/\\s+/g, '')}`;
+      }
+    });
+
+    // City Presets Modal
+    document.getElementById('btn-city-preset').addEventListener('click', () => {
+      const container = document.getElementById('presets-list-container');
+      container.innerHTML = CITY_PRESETS.map((p, idx) => `
+        <button class="btn-pill" style="padding: 12px; justify-content: space-between; font-size: 14px;" onclick="selectCity(${idx})">
+          <span><strong>${p.name}</strong> <span style="font-size: 11px; color: var(--text-muted);">${p.state}</span></span>
+          <span>➔</span>
+        </button>
+      `).join('');
+      document.getElementById('presets-modal').classList.add('active');
+    });
+
+    document.getElementById('btn-close-presets').addEventListener('click', () => {
+      document.getElementById('presets-modal').classList.remove('active');
+    });
+
+    window.selectCity = function(idx) {
+      const p = CITY_PRESETS[idx];
+      currentLat = p.lat;
+      currentLon = p.lon;
+      document.getElementById('current-city-label').textContent = p.name.split(' ')[0];
+      document.getElementById('location-address-text').textContent = p.address;
+      document.getElementById('telemetry-coords').textContent = `${p.lat.toFixed(4)}° N, ${p.lon.toFixed(4)}° E (Simuliert)`;
+      document.getElementById('gps-indicator').className = 'gps-dot simulated';
+      document.getElementById('gps-label').textContent = 'SIMULATION';
+      document.getElementById('presets-modal').classList.remove('active');
+      renderList();
+    };
+
+    // Country Filter Buttons
+    document.querySelectorAll('.country-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.country-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        selectedCountry = btn.getAttribute('data-country');
+        renderList();
+      });
+    });
+
+    // Specialty Filter Buttons
+    document.querySelectorAll('.filter-chip').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.filter-chip').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        selectedSpecialty = btn.getAttribute('data-spec');
+        renderList();
+      });
+    });
+
+    // Radius Filter Buttons
+    document.querySelectorAll('.radius-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.radius-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        selectedRadiusKm = parseInt(btn.getAttribute('data-radius'), 10);
+        renderList();
+      });
+    });
+
+    // Search Input
+    document.getElementById('search-input').addEventListener('input', (e) => {
+      searchQuery = e.target.value;
+      renderList();
+    });
+
+    // Sort Toggle
+    document.getElementById('btn-toggle-sort').addEventListener('click', () => {
+      sortMode = sortMode === 'ETA' ? 'DISTANCE' : 'ETA';
+      document.getElementById('sort-label').textContent = sortMode === 'ETA' ? 'Sortiert: Fahrzeit' : 'Sortiert: Luftlinie';
+      renderList();
+    });
+
+    // Refresh Button
+    document.getElementById('btn-refresh').addEventListener('click', () => {
+      reverseGeocode(currentLat, currentLon);
+      renderList();
+    });
+
+    // GPS Toggle
+    document.getElementById('btn-gps-toggle').addEventListener('click', () => {
+      initGps();
+    });
+
+    // Initial Load
+    initGps();
+    renderList();
+  </script>
+</body>
+</html>

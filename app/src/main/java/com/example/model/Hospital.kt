@@ -47,10 +47,18 @@ data class Hospital(
   val status: BedStatus = BedStatus.AVAILABLE,
   val statusNote: String = "",
   val hasHeliport: Boolean = false,
+  val country: String = "DE",
   val distanceMeters: Float = 0f,
   val drivingDistanceMeters: Int? = null,
   val drivingDurationSeconds: Int? = null
 ) {
+  val countryFlag: String
+    get() = when (country.uppercase()) {
+      "AT" -> "🇦🇹 AT"
+      "CH" -> "🇨🇭 CH"
+      else -> "🇩🇪 DE"
+    }
+
   val formattedBeelineKm: String
     get() {
       val km = distanceMeters / 1000f

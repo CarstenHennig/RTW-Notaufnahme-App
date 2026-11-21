@@ -153,7 +153,7 @@ fun HospitalCard(
       )
 
       Text(
-        text = "${hospital.emergencyDepartmentName} • ${hospital.level.shortName}",
+        text = "${hospital.countryFlag} • ${hospital.emergencyDepartmentName} • ${hospital.level.shortName}",
         fontSize = 13.sp,
         fontWeight = FontWeight.Medium,
         color = MaterialTheme.colorScheme.primary
